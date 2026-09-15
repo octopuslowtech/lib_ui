@@ -216,6 +216,7 @@ protected:
 private:
 	TitleControls _controls;
 	object_ptr<Ui::PlainShadow> _shadow;
+	QString _text;
 	bool _mousePressed = false;
 
 };

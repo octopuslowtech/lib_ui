@@ -447,7 +447,9 @@ QRect DefaultTitleWidget::controlsGeometry() const {
 }
 
 void DefaultTitleWidget::setText(const QString &text) {
+	_text = text;
 	window()->setWindowTitle(text);
+	update();
 }
 
 void DefaultTitleWidget::setStyle(const style::WindowTitle &st) {
@@ -461,9 +463,28 @@ void DefaultTitleWidget::setResizeEnabled(bool enabled) {
 
 void DefaultTitleWidget::paintEvent(QPaintEvent *e) {
 	const auto active = window()->isActiveWindow();
-	QPainter(this).fillRect(
-		e->rect(),
-		active ? _controls.st()->bgActive : _controls.st()->bg);
+	const auto st = _controls.st();
+	auto p = QPainter(this);
+	p.fillRect(e->rect(), active ? st->bgActive : st->bg);
+	if (_text.isEmpty()) {
+		return;
+	}
+	const auto controls = _controls.geometry();
+	const auto padding = st->style.font->spacew * 2;
+	const auto onLeft = (controls.center().x() * 2 < width());
+	const auto left = onLeft
+		? (controls.x() + controls.width() + padding)
+		: padding;
+	const auto available = (onLeft ? width() : controls.x()) - left - padding;
+	if (available <= 0) {
+		return;
+	}
+	p.setFont(st->style.font);
+	p.setPen(active ? st->fgActive : st->fg);
+	p.drawText(
+		QRect(left, 0, available, height() - st::lineWidth),
+		Qt::AlignLeft | Qt::AlignVCenter,
+		st->style.font->elided(_text, available));
 }
 
 void DefaultTitleWidget::resizeEvent(QResizeEvent *e) {
