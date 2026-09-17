@@ -474,7 +474,7 @@ void LayerStackWidget::hideAllAnimatedRun() {
 	if (_background->hasBodyCache()) {
 		removeBodyCache();
 		hideChildren();
-		auto bodyCache = Ui::GrabWidget(parentWidget());
+		auto bodyCache = Ui::GrabWidget(parentWidget(), geometry());
 		showChildren();
 		_background->refreshBodyCache(std::move(bodyCache));
 	}
@@ -563,7 +563,7 @@ void LayerStackWidget::setCacheImages() {
 	if (_mainMenu) {
 		removeBodyCache();
 		hideChildren();
-		bodyCache = Ui::GrabWidget(parentWidget());
+		bodyCache = Ui::GrabWidget(parentWidget(), geometry());
 		showChildren();
 		mainMenuCache = Ui::Shadow::grab(_mainMenu, st::boxRoundShadow, RectPart::Right);
 	}
