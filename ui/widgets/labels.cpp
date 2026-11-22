@@ -10,6 +10,7 @@
 #include "ui/text/text_entity.h"
 #include "ui/text/text_extended_data.h"
 #include "ui/effects/animation_value.h"
+#include "ui/effects/animations.h"
 #include "ui/widgets/popup_menu.h"
 #include "ui/widgets/box_content_divider.h"
 #include "ui/basic_click_handlers.h" // UrlClickHandler
@@ -52,7 +53,9 @@ CrossFadeAnimation::CrossFadeAnimation(
 		Data &&was,
 		Data &&now)
 : _bg(bg) {
-	const auto maxLines = qMax(was.lineWidths.size(), now.lineWidths.size());
+	const auto maxLines = std::max(
+		was.lineWidths.size(),
+		now.lineWidths.size());
 	auto fillDataTill = [&](Data &data) {
 		for (auto i = data.lineWidths.size(); i != maxLines; ++i) {
 			data.lineWidths.push_back(-1);
@@ -398,7 +401,7 @@ int FlatLabel::countTextWidth(int newWidth) const {
 int FlatLabel::countTextHeight(int textWidth) {
 	_fullTextHeight = _text.countHeight(textWidth, _breakEverywhere);
 	return _st.maxHeight
-		? qMin(_fullTextHeight, _st.maxHeight)
+		? std::min(_fullTextHeight, _st.maxHeight)
 		: _fullTextHeight;
 }
 
@@ -883,6 +886,12 @@ void FlatLabel::executeDrag() {
 	if (auto mimeData = TextUtilities::MimeDataFromText(selectedText)) {
 		auto drag = new QDrag(window());
 		drag->setMimeData(mimeData.release());
+
+		// Running animations must keep ticking inside the drag's loop.
+		Animations::Manager::SetScheduleWithInvokeQueued(true);
+		const auto guard = gsl::finally([] {
+			Animations::Manager::SetScheduleWithInvokeQueued(false);
+		});
 		drag->exec(Qt::CopyAction);
 
 		// We don't receive mouseReleaseEvent when drag is finished.
@@ -975,7 +984,11 @@ void FlatLabel::updateHover(const Text::StateResult &state) {
 			if (state.afterSymbol && _selectionType == TextSelectType::Letters) {
 				++second;
 			}
-			auto selection = _text.adjustSelection({ qMin(second, _dragSymbol), qMax(second, _dragSymbol) }, _selectionType);
+			const auto from = std::min(second, _dragSymbol);
+			const auto till = std::max(second, _dragSymbol);
+			auto selection = _text.adjustSelection(
+				{ from, till },
+				_selectionType);
 			if (_selection != selection) {
 				_selection = selection;
 				_savedSelection = { 0, 0 };
@@ -1041,8 +1054,12 @@ Text::StateResult FlatLabel::getTextState(const QPoint &m) const {
 	bool heightExceeded = _st.maxHeight && (_st.maxHeight < _fullTextHeight || useWidth < _text.maxWidth());
 	bool renderElided = _breakEverywhere || heightExceeded;
 	if (renderElided) {
-		auto lineHeight = qMax(_st.style.lineHeight, _st.style.font->height);
-		auto lines = _st.maxHeight ? qMax(_st.maxHeight / lineHeight, 1) : ((height() / lineHeight) + 2);
+		auto lineHeight = std::max(
+			_st.style.lineHeight,
+			_st.style.font->height);
+		auto lines = _st.maxHeight
+			? std::max(_st.maxHeight / lineHeight, 1)
+			: ((height() / lineHeight) + 2);
 		request.lines = lines;
 		if (_breakEverywhere) {
 			request.flags |= Text::StateRequest::Flag::BreakEverywhere;
@@ -1096,11 +1113,13 @@ void FlatLabel::paintEvent(QPaintEvent *e) {
 	const auto heightExceeded = _st.maxHeight
 		&& (_st.maxHeight < _fullTextHeight || textWidth < _text.maxWidth());
 	const auto renderElided = _breakEverywhere || heightExceeded;
-	const auto lineHeight = qMax(_st.style.lineHeight, _st.style.font->height);
+	const auto lineHeight = std::max(
+		_st.style.lineHeight,
+		_st.style.font->height);
 	const auto elisionHeight = !renderElided
 		? 0
 		: _st.maxHeight
-		? qMax(_st.maxHeight, lineHeight)
+		? std::max(_st.maxHeight, lineHeight)
 		: height();
 	const auto elisionLines = (renderElided && _elisionMiddle) ? 1 : 0;
 	const auto paused = _animationsPausedCallback
